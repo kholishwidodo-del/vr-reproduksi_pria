@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VR Reproduksi Pria - MTsN 1 Malang</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; background-color: #1e293b; color: white; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 1rem; }
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; overflow-y: auto; overflow-x: hidden; }
+        .interactive { pointer-events: auto; }
+        
+        /* Custom Scrollbar Blue theme */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        ::-webkit-scrollbar-thumb { background: #0284c7; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0369a1; }
+
+        .hotspot-label {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid #38bdf8;
+            color: #7dd3fc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: auto;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s, background 0.2s;
+            opacity: 0;
+            display: none;
+        }
+        
+        .hotspot-label:hover {
+            background: rgba(14, 165, 233, 0.85);
+            color: #ffffff;
+        }
+        
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .floating { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+    </style>
+</head>
+<body class="antialiased text-white selection:bg-cyan-500 selection:text-white">
+
+    <!-- 3D Canvas Background -->
+    <div id="canvas-container"></div>
+    <div id="hotspots-container" class="absolute top-0 left-0 w-full h-full z-20 pointer-events-none"></div>
+
+    <!-- UI Overlay Main -->
+    <div id="ui-layer" class="ui-layer">
+        
+        <!-- AUDIO BGM -->
+        <audio id="bgm" loop preload="auto">
+            <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3" type="audio/mpeg">
+        </audio>
+
+        <!-- TOMBOL MUSIK LATAR -->
+        <button id="bgm-btn" onclick="toggleBGM()" class="fixed top-4 right-4 z-50 glass-panel px-4 py-2 hover:bg-white/10 transition font-semibold interactive pointer-events-auto flex items-center gap-2 rounded-full border border-cyan-500/30">
+            <span id="bgm-icon">🔇</span> <span class="hidden md:inline text-sm text-cyan-300">Musik Study</span>
+        </button>
+
+        <!-- SCREEN: HOME -->
+        <div id="screen-home" class="interactive flex flex-col items-center justify-center min-h-screen p-6 relative">
+            <div class="absolute inset-0 bg-gradient-to-br from-slate-950 via-cyan-950/80 to-blue-950/90 pointer-events-none"></div>
+            
+            <div class="relative z-10 text-center max-w-4xl mx-auto glass-panel p-10 mt-12 floating border-cyan-500/30">
+                <div class="inline-block px-4 py-1 mb-4 text-xs font-bold tracking-widest text-cyan-300 bg-cyan-950/70 rounded-full border border-cyan-500/30">MEDIA PEMBELAJARAN IPA KELAS IX</div>
+                <h1 class="text-4xl md:text-6xl font-extrabold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-amber-400 drop-shadow-lg">
+                    VIRTUAL REALITY
+                </h1>
+                <h2 class="text-2xl md:text-3xl font-semibold mb-6 text-slate-200">EKSPLORASI ORGAN REPRODUKSI PRIA</h2>
+                
+                <p class="text-slate-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+                    Pelajari anatomi sistem reproduksi pria secara 3D interaktif. Eksplorasi organ, kelenjar asesoris, proses spermatogenesis, hingga mekanisme ejakulasi secara jelas.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <button onclick="navTo('lab')" class="interactive group relative px-6 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-105">
+                        <span class="block text-xl">🔬 MULAI</span>
+                        <span class="text-sm font-normal">Eksplorasi 3D</span>
+                    </button>
+                    <button onclick="navTo('materi')" class="interactive px-6 py-4 bg-slate-900/80 border border-slate-700 hover:bg-slate-800 rounded-xl font-bold transition-all hover:scale-105">
+                        <span class="block text-xl">📚 MATERI</span>
+                        <span class="text-sm font-normal text-slate-400">Pusat Pengetahuan</span>
+                    </button>
+                    <button onclick="navTo('kuis')" class="interactive px-6 py-4 bg-slate-900/80 border border-slate-700 hover:bg-slate-800 rounded-xl font-bold transition-all hover:scale-105">
+                        <span class="block text-xl">✍️ KUIS</span>
+                        <span class="text-sm font-normal text-slate-400">Uji Kemampuan</span>
+                    </button>
+                    <button onclick="navTo('tantangan')" class="interactive px-6 py-4 bg-slate-900/80 border border-slate-700 hover:bg-slate-800 rounded-xl font-bold transition-all hover:scale-105">
+                        <span class="block text-xl">🎮 TANTANGAN</span>
+                        <span class="text-sm font-normal text-slate-400">Mini Games</span>
+                    </button>
+                </div>
+
+                <div class="border-t border-slate-800 pt-4 text-sm text-slate-400 flex flex-col md:flex-row justify-center items-center gap-4">
+                    <div>Disusun oleh: <strong class="text-cyan-300">Mohamad Kholish Widodo, S.Pd., M.Pd.</strong></div>
+                    <div class="hidden md:block w-1 h-1 bg-slate-600 rounded-full"></div>
+                    <div>Sekolah: <strong class="text-cyan-300">MTsN 1 Kota Malang</strong></div>
+                </div>
+                
+                <button onclick="showGuide()" class="interactive absolute top-4 left-4 bg-slate-900/80 border border-slate-700 px-4 py-2 text-sm rounded-full hover:bg-slate-800 transition">
+                    ℹ️ Petunjuk
+                </button>
+            </div>
+        </div>
+
+        <!-- SCREEN: 3D LAB -->
+        <div id="screen-lab" class="hidden w-full h-full relative">
+            
+            <!-- Navbar -->
+            <div class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-30 interactive pointer-events-auto">
+                <button onclick="navTo('home')" class="glass-panel px-4 py-2 hover:bg-white/10 transition font-semibold flex items-center gap-2 text-cyan-300">
+                    <span>⬅</span> Kembali
+                </button>
+                
+                <div class="glass-panel p-2 flex gap-2">
+                    <button onclick="resetCamera()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded text-sm transition">Reset View</button>
+                    <button onclick="toggleTransparency()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded text-sm transition">Mode Transparan</button>
+                    <button id="toggle-label-btn" onclick="toggleLabels()" class="px-3 py-1 bg-cyan-700 hover:bg-cyan-600 rounded text-sm transition">Sembunyikan Nama Organ</button>
+                </div>
+            </div>
+
+            <!-- Simulation Controls -->
+            <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 glass-panel p-3 flex gap-3 z-30 interactive pointer-events-auto w-[90%] md:w-auto overflow-x-auto">
+                <div class="text-xs text-cyan-400 absolute -top-5 left-2">Simulasi Biologi:</div>
+                <button onclick="playAnimation('spermatogenesis')" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded font-semibold text-sm whitespace-nowrap">🧬 Spermatogenesis</button>
+                <button onclick="playAnimation('ejakulasi')" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded font-semibold text-sm whitespace-nowrap">⚡ Jalur Ejakulasi</button>
+                <button onclick="stopAnimation()" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded font-semibold text-sm whitespace-nowrap">⏹ Stop</button>
+            </div>
+
+            <!-- Info Panel (Right Side) -->
+            <div id="info-panel" class="absolute top-20 right-4 w-80 glass-panel p-6 transform translate-x-full transition-transform duration-300 z-30 interactive pointer-events-auto border-cyan-500/40">
+                <button onclick="closeInfoPanel()" class="absolute top-2 right-2 text-slate-400 hover:text-white">✕</button>
+                <h3 id="info-title" class="text-2xl font-bold text-cyan-400 mb-2">Nama Organ</h3>
+                <div class="w-full h-1 bg-gradient-to-r from-cyan-500 to-transparent mb-4"></div>
+                <p id="info-desc" class="text-sm text-slate-300 mb-4 leading-relaxed">
+                    Deskripsi organ akan muncul di sini saat Anda mengklik model 3D.
+                </p>
+                <div class="bg-slate-900/90 rounded p-3 text-sm border-l-4 border-amber-400">
+                    <strong class="text-amber-300">Fungsi Utama:</strong><br>
+                    <span id="info-func" class="text-slate-300">Fungsi akan dijelaskan di sini.</span>
+                </div>
+            </div>
+
+            <!-- Subtitle for Animations -->
+            <div id="anim-subtitle" class="absolute top-24 left-1/2 transform -translate-x-1/2 glass-panel px-6 py-3 text-center hidden z-30 interactive transition-opacity duration-300 border-cyan-500/50">
+                <p id="anim-text" class="font-semibold text-lg text-amber-300"></p>
+            </div>
+        </div>
+
+        <!-- SCREEN: MATERI -->
+        <div id="screen-materi" class="hidden min-h-screen p-6 relative interactive bg-slate-950 pointer-events-auto overflow-y-auto">
+            <button onclick="navTo('home')" class="fixed top-6 left-6 glass-panel px-4 py-2 hover:bg-white/10 transition font-semibold z-50 text-cyan-300">
+                ⬅ Kembali
+            </button>
+            <div class="max-w-4xl mx-auto mt-16 glass-panel p-8 border-cyan-500/30">
+                <h2 class="text-4xl font-bold text-cyan-400 mb-8 text-center border-b border-slate-800 pb-4">Materi Pembelajaran Reproduksi Pria</h2>
+                
+                <div class="space-y-8">
+                    <!-- SECTION 1: ANATOMI KESELURUHAN PRIA (Teks Full Tanpa Gambar) -->
+                    <section class="bg-slate-900/60 p-6 rounded-xl border border-slate-800">
+                        <h3 class="text-2xl font-bold text-cyan-400 mb-4">1. Sistem Reproduksi Pria</h3>
+                        <p class="text-slate-300 leading-relaxed text-base md:text-lg">
+                            Sistem reproduksi pria bertugas memproduksi sel sperma (gamet jantan), menghasilkan hormon seksual utama (testosteron), dan menyalurkan sperma ke dalam organ reproduksi wanita saat pembuahan. Berbeda dengan wanita yang memproduksi sel telur secara berkala dalam siklus bulanan, organ reproduksi pria mampu memproduksi jutaan sel sperma setiap harinya secara terus-menerus sejak memasuki masa pubertas.
+                        </p>
+                    </section>
+                    
+                    <!-- SECTION 2: ORGAN LUAR DAN DALAM (Teks Full Tanpa Gambar) -->
+                    <section class="bg-slate-900/60 p-6 rounded-xl border border-slate-800">
+                        <h3 class="text-2xl font-bold text-amber-400 mb-4">2. Organ & Kelenjar Asesoris</h3>
+                        <p class="text-slate-300 leading-relaxed mb-4 text-sm md:text-base">
+                            Sistem reproduksi pria terdiri dari organ reproduksi luar, saluran reproduksi, serta kelenjar-kelenjar asesoris yang berfungsi memberikan nutrisi dan media pelindung bagi sel sperma:
+                        </p>
+                        <ul class="list-disc list-inside text-slate-300 space-y-3 text-sm md:text-base leading-relaxed">
+                            <li><strong class="text-cyan-300">Testis:</strong> Tempat utama pembentukan sel sperma (spermatogenesis) dan sintesis hormon testosteron.</li>
+                            <li><strong class="text-cyan-300">Skrotum:</strong> Kantong pelindung testis di luar rongga tubuh yang menjaga suhu testis tetap stabil (1–2°C di bawah suhu normal tubuh) untuk pembentukan sperma yang sehat.</li>
+                            <li><strong class="text-amber-300">Epididimis:</strong> Saluran tergulung yang memeluk permukaan belakang/atas testis, berfungsi sebagai tempat penyimpanan sementara dan pematangan motilitas sel sperma.</li>
+                            <li><strong class="text-amber-300">Vas Deferens:</strong> Saluran berotot yang membawa sperma dari epididimis naik menuju saluran ejakulasi di rongga panggul.</li>
+                            <li><strong class="text-purple-300">Vesikula Seminalis:</strong> Kelenjar yang menghasilkan cairan alkali kaya akan gula fruktosa sebagai sumber energi utama bagi pergerakan sperma.</li>
+                            <li><strong class="text-purple-300">Kelenjar Prostat:</strong> Menghasilkan cairan berwarna putih susu yang bersifat basa untuk menetralkan sifat asam pada uretra dan vagina.</li>
+                            <li><strong class="text-emerald-300">Kelenjar Cowper (Bulbouretra):</strong> Kelenjar kecil yang menghasilkan lendir pelicin untuk membersihkan uretra dari sisa-sisa urine sebelum ejakulasi.</li>
+                        </ul>
+                    </section>
+
+                    <!-- SECTION 3: SPERMATOGENESIS -->
+                    <section class="bg-slate-900/60 p-6 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 items-center">
+                        <div class="w-full md:w-1/2 flex justify-center">
+                            <div class="relative w-full max-w-sm rounded-xl overflow-hidden border border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.2)] bg-slate-950 p-2">
+                                <img src="gambar_pria_3.jpg" alt="Tahapan Spermatogenesis" class="w-full h-auto rounded-lg object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <svg class="w-full h-auto hidden" viewBox="0 0 320 250" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="320" height="250" rx="12" fill="#070d19"/>
+                                    <!-- Spermatogonium -->
+                                    <circle cx="160" cy="30" r="14" fill="#0284c7" stroke="#38bdf8"/><text x="185" y="34" fill="#ffffff" font-size="10">Spermatogonium (2n)</text>
+                                    <line x1="160" y1="44" x2="160" y2="60" stroke="#64748b" stroke-width="1.5"/>
+                                    <!-- Spermatosit Primer -->
+                                    <circle cx="160" cy="76" r="16" fill="#0284c7" stroke="#38bdf8"/><text x="185" y="80" fill="#ffffff" font-size="10">Spermatosit I (2n)</text>
+                                    
+                                    <!-- Meiosis I -> Spermatosit Sekunder -->
+                                    <line x1="160" y1="92" x2="110" y2="115" stroke="#64748b" stroke-width="1.5"/>
+                                    <line x1="160" y1="92" x2="210" y2="115" stroke="#64748b" stroke-width="1.5"/>
+                                    <circle cx="110" cy="128" r="12" fill="#a855f7"/><circle cx="210" cy="128" r="12" fill="#a855f7"/>
+                                    <text x="230" y="132" fill="#c084fc" font-size="9">Spermatosit II (n)</text>
+
+                                    <!-- Meiosis II -> Spermatid -->
+                                    <circle cx="75" cy="178" r="9" fill="#f59e0b"/><circle cx="115" cy="178" r="9" fill="#f59e0b"/>
+                                    <circle cx="195" cy="178" r="9" fill="#f59e0b"/><circle cx="235" cy="178" r="9" fill="#f59e0b"/>
+                                    <text x="250" y="182" fill="#fbbf24" font-size="9">Spermatid (n)</text>
+
+                                    <!-- Spermatogenesis -> Spermatozoa -->
+                                    <path d="M 75 198 Q 70 230 75 235 M 115 198 Q 110 230 115 235 M 195 198 Q 190 230 195 235 M 235 198 Q 230 230 235 235" stroke="#38bdf8" stroke-width="2"/>
+                                    <circle cx="75" cy="198" r="4" fill="#ffffff"/><circle cx="115" cy="198" r="4" fill="#ffffff"/>
+                                    <circle cx="195" cy="198" r="4" fill="#ffffff"/><circle cx="235" cy="198" r="4" fill="#ffffff"/>
+                                    <text x="250" y="215" fill="#38bdf8" font-size="9" font-weight="bold">Spermatozoa</text>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="w-full md:w-1/2">
+                            <h3 class="text-2xl font-bold text-cyan-400 mb-4">3. Proses Spermatogenesis</h3>
+                            <p class="text-slate-300 leading-relaxed mb-3"><strong>Spermatogenesis</strong> adalah proses pembentukan sel sperma yang terjadi di dalam tubulus seminiferus testis secara terus-menerus sejak laki-laki memasuki masa pubertas.</p>
+                            <ol class="list-decimal list-inside text-slate-300 space-y-1 text-sm md:text-base">
+                                <li><strong class="text-cyan-300">Spermatogonium (2n):</strong> Sel induk sperma membelah secara mitosis.</li>
+                                <li><strong class="text-cyan-300">Spermatosit Primer (2n):</strong> Mengalami Meiosis I menjadi 2 Spermatosit Sekunder.</li>
+                                <li><strong class="text-purple-300">Spermatosit Sekunder (n):</strong> Mengalami Meiosis II menjadi 4 Spermatid.</li>
+                                <li><strong class="text-amber-300">Spermatid (n):</strong> Berdiferensiasi (pematangan) membentuk spermatozoa lengkap dengan ekor.</li>
+                            </ol>
+                        </div>
+                    </section>
+
+                    <!-- SECTION 4: HORMON REPRODUKSI PRIA -->
+                    <section class="bg-slate-900/60 p-6 rounded-xl border border-slate-800 flex flex-col md:flex-row-reverse gap-6 items-center">
+                        <div class="w-full md:w-1/2 flex justify-center">
+                            <div class="relative w-full max-w-sm rounded-xl overflow-hidden border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.2)] bg-slate-950 p-2">
+                                <img src="gambar_pria_4.jpg" alt="Regulasi Hormon Pria" class="w-full h-auto rounded-lg object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <svg class="w-full h-auto hidden" viewBox="0 0 340 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="340" height="200" rx="12" fill="#070d19"/>
+                                    <!-- Hipotalamus & Hipofisis -->
+                                    <rect x="110" y="20" width="120" height="35" rx="8" fill="#312e81" stroke="#6366f1"/>
+                                    <text x="170" y="42" fill="#a5b4fc" font-size="10" font-weight="bold" text-anchor="middle">Kelenjar Hipofisis</text>
+                                    
+                                    <!-- Jalur LH & FSH -->
+                                    <line x1="140" y1="55" x2="90" y2="120" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
+                                    <line x1="200" y1="55" x2="250" y2="120" stroke="#38bdf8" stroke-width="2"/>
+                                    <text x="100" y="85" fill="#fbbf24" font-size="9" font-weight="bold">LH</text>
+                                    <text x="235" y="85" fill="#7dd3fc" font-size="9" font-weight="bold">FSH</text>
+
+                                    <!-- Target Organs / Sel -->
+                                    <circle cx="90" cy="145" r="22" fill="#78350f" stroke="#d97706"/>
+                                    <text x="90" y="148" fill="#fef08a" font-size="8" font-weight="bold" text-anchor="middle">Sel Leydig</text>
+
+                                    <circle cx="250" cy="145" r="22" fill="#0c4a6e" stroke="#0284c7"/>
+                                    <text x="250" y="148" fill="#bae6fd" font-size="8" font-weight="bold" text-anchor="middle">Sel Sertoli</text>
+
+                                    <!-- Hasil -->
+                                    <text x="90" y="185" fill="#f59e0b" font-size="9" font-weight="bold" text-anchor="middle">Testosteron</text>
+                                    <text x="250" y="185" fill="#38bdf8" font-size="9" font-weight="bold" text-anchor="middle">Spermatogenesis</text>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="w-full md:w-1/2">
+                            <h3 class="text-2xl font-bold text-purple-400 mb-4">4. Peran Hormon Reproduksi Pria</h3>
+                            <ul class="list-disc list-inside text-slate-300 space-y-2 text-sm md:text-base">
+                                <li><strong class="text-amber-300">Testosteron:</strong> Hormon utama pria yang merangsang perkembangan organ seksual sekunder (tumbuh jakun, dada membidang, kumis/janggut) dan memicu spermatogenesis.</li>
+                                <li><strong class="text-cyan-300">FSH (Follicle Stimulating Hormone):</strong> Merangsang sel Sertoli di testis untuk menutrisi dan memacu pembentukan sperma.</li>
+                                <li><strong class="text-amber-300">LH (Luteinizing Hormone):</strong> Merangsang sel Leydig di testis untuk memproduksi hormon testosteron.</li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <!-- SECTION 5: KESEHATAN REPRODUKSI PRIA -->
+                    <section class="bg-slate-900/60 p-6 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 items-center">
+                        <div class="w-full md:w-1/2 flex justify-center">
+                            <div class="relative w-full max-w-sm rounded-xl overflow-hidden border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)] bg-slate-950 p-2">
+                                <img src="gambar_pria_5.jpg" alt="Menjaga Kesehatan Reproduksi Pria" class="w-full h-auto rounded-lg object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <svg class="w-full h-auto hidden" viewBox="0 0 350 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="350" height="220" rx="12" fill="#070d19"/>
+                                    <!-- Shield Icon -->
+                                    <path d="M 175 20 C 130 20 85 40 85 100 C 85 160 175 200 175 200 C 175 200 265 160 265 100 C 265 40 220 20 175 20 Z" fill="#064e3b" opacity="0.6" stroke="#10b981" stroke-width="2"/>
+                                    
+                                    <!-- Icons -->
+                                    <text x="175" y="85" fill="#34d399" font-size="11" font-weight="bold" text-anchor="middle">KESEHATAN PRIA</text>
+                                    <text x="175" y="105" fill="#ffffff" font-size="9" text-anchor="middle">1. Hindari Pakaian Terlalu Ketat</text>
+                                    <text x="175" y="125" fill="#ffffff" font-size="9" text-anchor="middle">2. Menjaga Kebersihan Organ Out</text>
+                                    <text x="175" y="145" fill="#ffffff" font-size="9" text-anchor="middle">3. Terapkan Pola Hidup Sehat</text>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="w-full md:w-1/2">
+                            <h3 class="text-2xl font-bold text-emerald-400 mb-4">5. Menjaga Kesehatan Organ Reproduksi</h3>
+                            <ul class="list-disc list-inside text-slate-300 space-y-2 text-sm md:text-base">
+                                <li><strong class="text-emerald-300">Gunakan Pakaian Dalam yang Longgar:</strong> Celana terlalu ketat dapat meningkatkan suhu skrotum yang mengganggu kualitas sperma.</li>
+                                <li><strong class="text-emerald-300">Menjaga Kebersihan Organ Luar:</strong> Basuh dan keringkan area organ luar secara rutin agar tidak menjadi sarang bakteri/jamur.</li>
+                                <li><strong class="text-emerald-300">Hindari Rokok & Alkohol:</strong> Zat beracun pada rokok dan alkohol menurunkan jumlah serta mobilitas sel sperma.</li>
+                                <li><strong class="text-emerald-300">Olahraga & Cukupi Nutrisi:</strong> Konsumsi makanan kaya seng (zinc) dan antioksidan untuk menjaga kualitas reproduksi.</li>
+                            </ul>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN: KUIS -->
+        <div id="screen-kuis" class="hidden min-h-screen flex items-center justify-center p-6 relative interactive pointer-events-auto bg-slate-950">
+            <button onclick="navTo('home')" class="fixed top-6 left-6 glass-panel px-4 py-2 hover:bg-white/10 transition font-semibold z-50 text-cyan-300">
+                ⬅ Kembali
+            </button>
+            
+            <div id="quiz-container" class="max-w-3xl w-full glass-panel p-8 relative border-cyan-500/30">
+                <!-- Quiz Header -->
+                <div class="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+                    <h2 class="text-2xl font-bold text-cyan-400">Kuis Evaluasi Reproduksi Pria</h2>
+                    <div class="text-cyan-300 font-bold bg-cyan-950 px-4 py-1 rounded-full border border-cyan-500/30">Soal <span id="q-current">1</span> / <span id="q-total">15</span></div>
+                </div>
+                
+                <!-- Question -->
+                <div id="quiz-question-area">
+                    <p id="q-text" class="text-xl md:text-2xl font-semibold mb-6 leading-relaxed">Pertanyaan akan muncul di sini?</p>
+                    <div id="q-options" class="space-y-3">
+                        <!-- Options injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Feedback & Discussion -->
+                <div id="quiz-feedback" class="hidden mt-6 p-4 rounded-lg bg-slate-900 border border-slate-700 fade-in">
+                    <h4 id="fb-title" class="text-lg font-bold mb-2">Benar/Salah</h4>
+                    <p id="fb-desc" class="text-slate-300 text-sm leading-relaxed">Pembahasan...</p>
+                    <button onclick="nextQuestion()" class="mt-4 px-6 py-2 bg-cyan-600 hover:bg-cyan-500 rounded font-bold w-full md:w-auto transition">Selanjutnya ➡</button>
+                </div>
+
+                <!-- Result Screen -->
+                <div id="quiz-result" class="hidden text-center fade-in">
+                    <h2 class="text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">Kuis Selesai!</h2>
+                    <div class="w-32 h-32 mx-auto rounded-full bg-slate-900 flex items-center justify-center border-4 border-cyan-500 mb-6 shadow-[0_0_30px_rgba(6,182,212,0.4)]">
+                        <span id="quiz-score" class="text-4xl font-extrabold text-white">100</span>
+                    </div>
+                    <p class="text-xl mb-2 text-cyan-200" id="quiz-msg">Luar biasa!</p>
+                    
+                    <div class="mt-8 p-6 bg-gradient-to-r from-slate-900 via-cyan-950 to-blue-950 border border-cyan-500/50 rounded-xl relative overflow-hidden">
+                        <h3 class="text-2xl font-bold text-amber-400 mb-2 relative z-10">SERTIFIKAT PENGHARGAAN</h3>
+                        <p class="text-sm text-slate-300 relative z-10">Diberikan kepada Siswa MTsN 1 Kota Malang atas penyelesaian modul Virtual Reality Sistem Reproduksi Pria.</p>
+                        <p class="mt-4 font-bold text-cyan-300 relative z-10">Guru Mapel: Mohamad Kholish Widodo, S.Pd., M.Pd.</p>
+                    </div>
+
+                    <button onclick="startQuiz()" class="mt-8 px-6 py-2 bg-slate-800 hover:bg-slate-700 rounded font-bold mr-2">Ulangi Kuis</button>
+                    <button onclick="navTo('home')" class="mt-8 px-6 py-2 bg-cyan-600 hover:bg-cyan-500 rounded font-bold">Kembali ke Beranda</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN: TANTANGAN (MINI GAME) -->
+        <div id="screen-tantangan" class="hidden min-h-screen flex flex-col items-center justify-center p-6 relative interactive pointer-events-auto bg-slate-950">
+            <button onclick="navTo('home')" class="fixed top-6 left-6 glass-panel px-4 py-2 hover:bg-white/10 transition font-semibold z-50 text-cyan-300">
+                ⬅ Kembali
+            </button>
+            <div class="max-w-2xl w-full glass-panel p-8 text-center border-cyan-500/30">
+                <h2 class="text-3xl font-bold text-cyan-400 mb-4">🎮 Mini Game: Jalur Sperma</h2>
+                <p class="text-slate-300 mb-6">Urutkan saluran reproduksi pria yang dilalui sperma mulai dari pembentukan hingga keluar tubuh!</p>
+                
+                <div id="game-target" class="min-h-[100px] bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl p-4 flex flex-wrap gap-2 justify-center items-center mb-6">
+                    <span class="text-slate-500 text-sm" id="game-placeholder">Area Urutan (Kosong)</span>
+                </div>
+                
+                <div id="game-options" class="flex flex-wrap gap-3 justify-center mb-6">
+                    <button onclick="gameSelect(this, 1)" class="game-btn px-4 py-2 bg-cyan-700 rounded-lg hover:bg-cyan-600 transition shadow-lg">1. Testis (Tubulus Seminiferus)</button>
+                    <button onclick="gameSelect(this, 4)" class="game-btn px-4 py-2 bg-indigo-700 rounded-lg hover:bg-indigo-600 transition shadow-lg">4. Uretra (Keluar Tubuh)</button>
+                    <button onclick="gameSelect(this, 3)" class="game-btn px-4 py-2 bg-purple-700 rounded-lg hover:bg-purple-600 transition shadow-lg">3. Vas Deferens</button>
+                    <button onclick="gameSelect(this, 2)" class="game-btn px-4 py-2 bg-amber-700 rounded-lg hover:bg-amber-600 transition shadow-lg">2. Epididimis</button>
+                </div>
+
+                <div class="flex gap-4 justify-center">
+                    <button onclick="checkGame()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded font-bold shadow-lg">Cek Jawaban</button>
+                    <button onclick="resetGame()" class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded font-bold shadow-lg">Reset</button>
+                </div>
+                
+                <p id="game-feedback" class="mt-4 font-bold text-lg hidden"></p>
+            </div>
+        </div>
+
+        <!-- MODAL: GUIDE -->
+        <div id="guide-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center interactive pointer-events-auto p-4">
+            <div class="glass-panel max-w-lg w-full p-8 relative border-cyan-500/40">
+                <button onclick="hideGuide()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
+                <h3 class="text-2xl font-bold text-cyan-400 mb-4">Petunjuk Penggunaan VR Pria</h3>
+                <ul class="space-y-3 text-slate-300 text-sm">
+                    <li><strong class="text-cyan-400">Mouse:</strong> Klik kiri & tahan untuk memutar 3D. Scroll untuk Zoom In/Out. Klik kanan untuk memindahkan (pan).</li>
+                    <li><strong class="text-cyan-400">Sentuh (Mobile):</strong> Geser 1 jari untuk memutar. Cubit untuk Zoom In/Out.</li>
+                    <li><strong class="text-amber-400">Eksplorasi:</strong> Klik pada bagian organ (titik bercahaya) untuk melihat penjelasan fungsi.</li>
+                    <li><strong class="text-amber-400">Simulasi:</strong> Gunakan tombol simulasi di bawah layar lab untuk melihat animasi pembentukan sperma dan jalurnya.</li>
+                </ul>
+                <div class="mt-6 text-center">
+                    <button onclick="hideGuide()" class="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 rounded font-bold">Mengerti</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MAIN SCRIPT -->
+    <script>
+        // --- DATA & STATE ---
+        const state = {
+            currentScreen: 'home',
+            bgmPlaying: false,
+            labelsVisible: true,
+            isTransparent: false,
+            selectedMesh: null,
+            quizIndex: 0,
+            quizScore: 0,
+            gameSequence: []
+        };
+
+        const organData = {
+            'Testis': {
+                title: '1. Testis',
+                func: 'Menghasilkan sel sperma (spermatogenesis) dan hormon testosteron.',
+                desc: 'Organ utama berbentuk oval di dalam kantong skrotum yang memproduksi spermatozoa.'
+            },
+            'Epididimis': {
+                title: '2. Epididimis',
+                func: 'Tempat pematangan dan penyimpanan sementara sel sperma.',
+                desc: 'Saluran tergulung yang memeluk permukaan belakang/atas testis.'
+            },
+            'Skrotum': {
+                title: '5. Skrotum',
+                func: 'Kantong pelindung testis yang mengatur suhu pembentukan sperma.',
+                desc: 'Lapisan kulit luar yang menjaga suhu testis tetap ideal (1-2°C di bawah suhu tubuh).'
+            },
+            'Penis': {
+                title: '3. Penis',
+                func: 'Organ kopulasi luar untuk menyalurkan sperma ke saluran reproduksi wanita.',
+                desc: 'Struktur menjuntai yang kaya akan jaringan erektil dan pembuluh darah.'
+            },
+            'Uretra': {
+                title: '4. Uretra',
+                func: 'Saluran memanjang untuk mengeluarkan cairan semen dan urine.',
+                desc: 'Saluran halus yang melintasi sepanjang bagian dalam organ penis.'
+            },
+            'VasDeferens': {
+                title: '6. Vas Deferens',
+                func: 'Saluran yang membawa sperma dari epididimis naik menuju saluran ejakulasi.',
+                desc: 'Saluran otot halus yang melengkung dari skrotum melintasi atas kandung kemih.'
+            },
+            'KandungKemih': {
+                title: '7. Kandung Kemih',
+                func: 'Menampung cairan urine sebelum dikeluarkan melalui uretra.',
+                desc: 'Rongga organ besar berotot yang berada di bagian atas panggul.'
+            },
+            'KelenjarProstat': {
+                title: '8. Kelenjar Prostat',
+                func: 'Menghasilkan cairan alkalis untuk menetralkan asam pada vagina dan uretra.',
+                desc: 'Kelenjar yang melingkari pangkal uretra tepat di bawah kandung kemih.'
+            },
+            'VesikulaSeminalis': {
+                title: '9. Vesikula Seminalis',
+                func: 'Menghasilkan cairan kaya fruktosa sebagai sumber energi sperma.',
+                desc: 'Kelenjar berlekuk yang berada di bagian belakang bawah kandung kemih.'
+            },
+            'KelenjarCowper': {
+                title: '10. Kelenjar Cowper (Bulbouretra)',
+                func: 'Menghasilkan cairan pelicin & pembersih sisa urine di uretra sebelum ejakulasi.',
+                desc: 'Kelenjar kecil berpasangan yang terletak tepat di bawah kelenjar prostat.'
+            }
+        };
+
+        const quizData = [
+            { q: "Di manakah tempat pembentukan sel sperma terjadi?", options: ["Epididimis", "Tubulus Seminiferus (Testis)", "Vas Deferens", "Vesikula Seminalis"], ans: 1, exp: "Pembentukan sperma (spermatogenesis) berlangsung di Tubulus Seminiferus di dalam testis." },
+            { q: "Organ yang berfungsi sebagai tempat pematangan dan penyimpanan sementara sperma adalah?", options: ["Epididimis", "Prostat", "Uretra", "Skrotum"], ans: 0, exp: "Epididimis berfungsi sebagai tempat pematangan motilitas dan penyimpanan sperma." },
+            { q: "Fungsi utama dari kantong skrotum adalah...", options: ["Menghasilkan hormon", "Menyimpan semen", "Menjaga suhu testis tetap ideal", "Menyalurkan urine"], ans: 2, exp: "Skrotum menjaga suhu testis sekitar 1-2°C di bawah suhu tubuh normal agar pembentukan sperma optimal." },
+            { q: "Kelenjar yang menghasilkan cairan alkali (basa) untuk menetralkan asam pada vagina adalah?", options: ["Vesikula Seminalis", "Kelenjar Prostat", "Epididimis", "Testis"], ans: 1, exp: "Kelenjar Prostat menghasilkan cairan alkali pelindung sperma dari keasaman vagina." },
+            { q: "Saluran yang menghubungkan epididimis dengan uretra disebut?", options: ["Tubulus Seminiferus", "Fimbriae", "Vas Deferens", "Ureter"], ans: 2, exp: "Vas Deferens adalah saluran panjang penuntun sperma menuju uretra." },
+            { q: "Cairan kaya fruktosa sebagai sumber energi bagi pergerakan sperma dihasilkan oleh?", options: ["Vesikula Seminalis", "Kelenjar Cowper", "Testis", "Prostat"], ans: 0, exp: "Vesikula Seminalis memberi nutrisi gula fruktosa bagi daya tahan sel sperma." },
+            { q: "Hormon seksual utama pada pria yang memicu sifat kelamin sekunder adalah?", options: ["Estrogen", "Progesteron", "Testosteron", "Insulin"], ans: 2, exp: "Testosteron mengatur perkembangan kelamin sekunder dan memicu pembentukan sperma." },
+            { q: "Tahapan pembentukan sel sperma dari 1 Spermatogonium (2n) akan menghasilkan berapa spermatozoa (n)?", options: ["2 sel", "4 sel", "8 sel", "16 sel"], ans: 1, exp: "Satu sel spermatogonium melelui pembelahan meiosis menghasilkan 4 sel spermatozoa fungsional." },
+            { q: "Hormon yang dihasilkan kelenjar hipofisis untuk merangsang sel Leydig memproduksi testosteron adalah?", options: ["FSH", "LH (Luteinizing Hormone)", "TSH", "Oksitosin"], ans: 1, exp: "LH merangsang sel Leydig di testis untuk menghasilkan hormon testosteron." },
+            { q: "Saluran yang berfungsi ganda untuk mengeluarkan sperma dan air seni (urine) pada pria adalah?", options: ["Vas Deferens", "Uretra", "Epididimis", "Ureter"], ans: 1, exp: "Uretra merupakan saluran gabungan ekskresi urine dan reproduksi semen pada pria." },
+            { q: "Perubahan sifat kelamin sekunder pada pria di bawah ini yang BENAR adalah...", options: ["Pinggul membesar", "Tumbuh jakun dan suara membesar", "Mengalami siklus menstruasi", "Kulit menjadi sangat halus"], ans: 1, exp: "Jakun tumbuh, dada membidang, dan suara membesar adalah ciri kelamin sekunder pria." },
+            { q: "Fungsi kelenjar Cowper (Bulbouretra) adalah?", options: ["Memproduksi sperma", "Menghasilkan pelicin dan pembersih sisa urine di uretra", "Menyimpan sperma", "Menghasilkan hormon testosteron"], ans: 1, exp: "Kelenjar Cowper menghasilkan cairan pelumas pra-ejakulasi untuk membersihkan uretra." },
+            { q: "Urutan pembentukan sperma yang benar adalah...", options: ["Spermatogonium -> Spermatosit I -> Spermatosit II -> Spermatid -> Spermatozoa", "Spermatid -> Spermatogonium -> Spermatozoa", "Spermatosit I -> Spermatogonium -> Spermatid", "Spermatozoa -> Spermatid -> Spermatogonium"], ans: 0, exp: "Urutan tepat: Spermatogonium (2n) -> Spermatosit I (2n) -> Spermatosit II (n) -> Spermatid (n) -> Spermatozoa (n)." },
+            { q: "Kebiasaan memakai celana dalam yang terlalu ketat tidak dianjurkan karena dapat...", options: ["Meningkatkan suhu skrotum dan merusak sperma", "Menyebabkan tubulus membengkak", "Menghambat pembentukan asam lambung", "Menurunkan kadar gula darah"], ans: 0, exp: "Suhu skrotum yang terlalu panas akibat celana ketat mengganggu pembentukan sel sperma yang sehat." },
+            { q: "Proses pengeluaran cairan semen dari organ reproduksi pria dinamakan?", options: ["Ejakulasi", "Ovulasi", "Fertilisasi", "Implantasi"], ans: 0, exp: "Ejakulasi adalah proses pelepasan cairan semen berisi spermatozoa dari uretra." }
+        ];
+
+        // --- NAVIGATION ---
+        function navTo(screenId) {
+            document.querySelectorAll('.ui-layer > div').forEach(el => {
+                if(el.id.startsWith('screen-')) el.classList.add('hidden');
+            });
+            document.getElementById(`screen-${screenId}`).classList.remove('hidden');
+            document.getElementById(`screen-${screenId}`).classList.add('fade-in');
+            state.currentScreen = screenId;
+
+            const canvas = document.getElementById('canvas-container');
+            const hotspots = document.getElementById('hotspots-container');
+            
+            if(screenId === 'lab' || screenId === 'home') {
+                canvas.style.display = 'block';
+                hotspots.style.display = screenId === 'lab' ? 'block' : 'none';
+                if(screenId === 'home') {
+                    moveCamera(0, 5, 35);
+                    if(reproductiveSystemGroup) reproductiveSystemGroup.rotation.y = 0;
+                } else if(screenId === 'lab') {
+                    moveCamera(0, 0, 22);
+                    if(reproductiveSystemGroup) {
+                        reproductiveSystemGroup.position.y = 0;
+                        reproductiveSystemGroup.rotation.set(0,0,0);
+                    }
+                }
+            } else {
+                canvas.style.display = 'none';
+                hotspots.style.display = 'none';
+                if (screenId === 'kuis') startQuiz();
+            }
+        }
+
+        // --- AUDIO ---
+        let autoBgmAttempted = false;
+
+        function toggleBGM() {
+            const bgm = document.getElementById('bgm');
+            const icon = document.getElementById('bgm-icon');
+            autoBgmAttempted = true;
+
+            if (state.bgmPlaying) {
+                bgm.pause();
+                state.bgmPlaying = false;
+                icon.innerText = "🔇";
+            } else {
+                bgm.volume = 0.8;
+                icon.innerText = "⏳";
+                bgm.play().then(() => {
+                    state.bgmPlaying = true;
+                    icon.innerText = "🔊";
+                }).catch(() => {
+                    state.bgmPlaying = false;
+                    icon.innerText = "🔇";
+                });
+            }
+        }
+
+        function initAutoBGM() {
+            const bgm = document.getElementById('bgm');
+            bgm.volume = 0.8;
+            const playAttempt = (e) => {
+                if(autoBgmAttempted) return;
+                if(e && e.target && e.target.closest('#bgm-btn')) return;
+                bgm.play().then(() => {
+                    state.bgmPlaying = true;
+                    autoBgmAttempted = true;
+                    const icon = document.getElementById('bgm-icon');
+                    if (icon) icon.innerText = "🔊";
+                    document.removeEventListener('click', playAttempt);
+                    document.removeEventListener('touchstart', playAttempt);
+                }).catch(() => {});
+            };
+            document.addEventListener('click', playAttempt);
+            document.addEventListener('touchstart', playAttempt);
+        }
+        initAutoBGM();
+
+        function showGuide() { document.getElementById('guide-modal').classList.remove('hidden'); }
+        function hideGuide() { document.getElementById('guide-modal').classList.add('hidden'); }
+
+        // --- THREE.JS SETUP FOR MALE ANATOMY ---
+        let scene, camera, renderer, controls;
+        let reproductiveSystemGroup;
+        let raycaster, mouse;
+        let animationObjects = { spermList: [] };
+        let organMeshes = [];
+        let labels = [];
+        let hotspotDots = [];
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x1e293b, 0.008);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 35);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 50;
+            controls.minDistance = 10;
+
+            // Lights - Pencahayaan Terang & Jelas
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
+            scene.add(ambientLight);
+
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x38bdf8, 1.0);
+            hemiLight.position.set(0, 50, 0);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(15, 25, 20);
+            scene.add(dirLight);
+
+            const dirLight2 = new THREE.DirectionalLight(0xe0f2fe, 1.0);
+            dirLight2.position.set(-15, -10, 15);
+            scene.add(dirLight2);
+
+            const pointLight = new THREE.PointLight(0x38bdf8, 1.8, 60);
+            pointLight.position.set(0, -2, 10);
+            scene.add(pointLight);
+
+            const pointLight2 = new THREE.PointLight(0xfbbf24, 1.2, 60);
+            pointLight2.position.set(0, 12, -2);
+            scene.add(pointLight2);
+
+            buildMaleAnatomyModel();
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            window.addEventListener('resize', onWindowResize);
+            container.addEventListener('click', onCanvasClick);
+            container.addEventListener('touchstart', onCanvasTouch, {passive: false});
+
+            animate3D();
+        }
+
+        function createMaterial(colorHex, transparent = false, opacity = 1.0, roughness = 0.25) {
+            return new THREE.MeshPhysicalMaterial({
+                color: colorHex,
+                metalness: 0.02,
+                roughness: roughness,
+                clearcoat: 0.6,
+                clearcoatRoughness: 0.1,
+                transmission: transparent ? 0.35 : 0.0,
+                ior: 1.35,
+                transparent: true,
+                opacity: opacity,
+                side: THREE.DoubleSide
+            });
+        }
+
+        function buildMaleAnatomyModel() {
+            reproductiveSystemGroup = new THREE.Group();
+            
+            // Material Realistis Sesuai Referensi Gambar Potongan Sagittal
+            const matPelvis = createMaterial(0x994d4d, true, 0.2, 0.8); 
+            const matBladder = createMaterial(0x3b82f6, false, 0.85, 0.4); // Kandung Kemih: Biru Cerah (Sky Blue)
+            const matProstat = createMaterial(0xd97706, false, 1.0, 0.3);  // Kelenjar Prostat: Oranye Terakota
+            const matVesikula = createMaterial(0xa855f7, false, 1.0, 0.3); // Vesikula Seminalis: Ungu Terang (Purple Lavender)
+            const matCowper = createMaterial(0x10b981, false, 1.0, 0.2);  // Kelenjar Cowper: Hijau Emerald Neon
+            const matPenisBody = createMaterial(0xe67373, false, 1.0, 0.35); 
+            const matUretra = createMaterial(0x661a1a, false, 1.0, 0.2); 
+
+            // Testis Organ: Warna Padat Krem-Merah Muda Terang (Kontras dari Skrotum)
+            const matTestis = new THREE.MeshPhysicalMaterial({
+                color: 0xfca5a5,
+                metalness: 0.05,
+                roughness: 0.2,
+                clearcoat: 0.8,
+                transparent: false,
+                opacity: 1.0
+            });
+
+            // Skrotum Outer: Kantong Kulit Luar Semi-Transparan
+            const matScrotum = new THREE.MeshPhysicalMaterial({
+                color: 0x9a3412,
+                metalness: 0.0,
+                roughness: 0.6,
+                transparent: true,
+                opacity: 0.35,
+                side: THREE.DoubleSide
+            });
+
+            // Material Epididimis Dibuat Sangat Kontras & Menyala Emas Terang
+            const matEpididimis = new THREE.MeshPhysicalMaterial({
+                color: 0xf59e0b,
+                emissive: 0xd97706,
+                emissiveIntensity: 0.35,
+                metalness: 0.1,
+                roughness: 0.2,
+                clearcoat: 0.8,
+                transparent: false,
+                opacity: 1.0
+            });
+            
+            // Vas Deferens: Warna Merah Crimson Menyala Terang & Sangat Kontras
+            const matVas = new THREE.MeshPhysicalMaterial({
+                color: 0xef4444,
+                emissive: 0xd97706,
+                emissiveIntensity: 0.45,
+                metalness: 0.2,
+                roughness: 0.1,
+                clearcoat: 1.0,
+                transparent: false,
+                opacity: 1.0
+            });
+
+            // 1. KONTUR DINDING PANGGUL / SAGITTAL BODY BLOCK
+            const bodyShape = new THREE.Shape();
+            bodyShape.moveTo(-3, 8);
+            bodyShape.lineTo(4, 8);
+            bodyShape.quadraticCurveTo(8, 4, 7, -2);
+            bodyShape.quadraticCurveTo(6, -6, 2, -6);
+            bodyShape.lineTo(-1, -6);
+            bodyShape.lineTo(-1, -3);
+            bodyShape.quadraticCurveTo(-4, -1, -4, 4);
+            bodyShape.closePath();
+
+            const extrudeSettings = { depth: 3, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.3, bevelThickness: 0.3 };
+            const geoBody = new THREE.ExtrudeGeometry(bodyShape, extrudeSettings);
+            geoBody.center();
+            const bodyMesh = new THREE.Mesh(geoBody, matPelvis);
+            bodyMesh.position.set(0, 1, -1.5);
+            reproductiveSystemGroup.add(bodyMesh);
+
+            // 2. KANDUNG KEMIH / BLADDER (NOMOR 7)
+            const geoBladder = new THREE.SphereGeometry(2.2, 32, 24);
+            const bladder = new THREE.Mesh(geoBladder, matBladder);
+            bladder.scale.set(1.3, 1.0, 1.0);
+            bladder.position.set(0.5, 2.8, 0);
+            bladder.name = 'Kandung Kemih';
+            bladder.userData = { id: 'KandungKemih' };
+            organMeshes.push(bladder);
+            reproductiveSystemGroup.add(bladder);
+
+            // 3. KELENJAR PROSTAT (NOMOR 8)
+            const geoProstat = new THREE.SphereGeometry(1.1, 32, 24);
+            const prostat = new THREE.Mesh(geoProstat, matProstat);
+            prostat.scale.set(1.2, 1.0, 1.0);
+            prostat.position.set(0.2, 0.6, 0);
+            prostat.name = 'Kelenjar Prostat';
+            prostat.userData = { id: 'KelenjarProstat' };
+            organMeshes.push(prostat);
+            reproductiveSystemGroup.add(prostat);
+
+            // 4. VESIKULA SEMINALIS (NOMOR 9)
+            class VesikulaCurve extends THREE.Curve {
+                getPoint(t, optionalTarget = new THREE.Vector3()) {
+                    const x = 1.3 + (t * 0.9);
+                    const y = 1.4 + (Math.sin(t * Math.PI) * 0.7);
+                    const z = 0.2 + (t * 0.3);
+                    return optionalTarget.set(x, y, z);
+                }
+            }
+            const geoVesikula = new THREE.TubeGeometry(new VesikulaCurve(), 20, 0.35, 12, false);
+            const vesikula = new THREE.Mesh(geoVesikula, matVesikula);
+            vesikula.name = 'Vesikula Seminalis';
+            vesikula.userData = { id: 'VesikulaSeminalis' };
+            organMeshes.push(vesikula);
+            reproductiveSystemGroup.add(vesikula);
+
+            // 5. KELENJAR COWPER / BULBOURETRA (NOMOR 10)
+            const geoCowper = new THREE.SphereGeometry(0.35, 16, 16);
+            const cowper = new THREE.Mesh(geoCowper, matCowper);
+            cowper.position.set(-0.2, -0.4, 0.3);
+            cowper.name = 'Kelenjar Cowper';
+            cowper.userData = { id: 'KelenjarCowper' };
+            organMeshes.push(cowper);
+            reproductiveSystemGroup.add(cowper);
+
+            // 6. BATANG PENIS MEMANJANG & MENJUNTAI KE BAWAH (NOMOR 3 & 4) - KONTINU DAN TERHUBUNG MULUS
+            class PenisCurve extends THREE.Curve {
+                getPoint(t, optionalTarget = new THREE.Vector3()) {
+                    // Kurva kontinu dari pangkal dalam panggul (-0.5, 0.5) melengkung mulus ke luar dan turun ke bawah (-3.5, -4.8)
+                    const x = -0.4 - (t * 3.1) - (Math.sin(t * Math.PI * 0.7) * 0.4);
+                    const y = 0.5 - (t * 5.3);
+                    const z = 0;
+                    return optionalTarget.set(x, y, z);
+                }
+            }
+            const penisCurveObj = new PenisCurve();
+
+            // Batang Penis Outer (Nomor 3) - Penampang utuh tersambung
+            const geoPenis = new THREE.TubeGeometry(penisCurveObj, 50, 0.75, 20, false);
+            const penisBody = new THREE.Mesh(geoPenis, matPenisBody);
+            penisBody.name = 'Penis';
+            penisBody.userData = { id: 'Penis' };
+            organMeshes.push(penisBody);
+            reproductiveSystemGroup.add(penisBody);
+
+            // Saluran Uretra Dalam Penis (Nomor 4) - Mengalir kontinu di dalam batang penis
+            const geoUretra = new THREE.TubeGeometry(penisCurveObj, 50, 0.22, 16, false);
+            const uretra = new THREE.Mesh(geoUretra, matUretra);
+            uretra.position.set(0, 0, 0);
+            uretra.name = 'Uretra';
+            uretra.userData = { id: 'Uretra' };
+            organMeshes.push(uretra);
+            reproductiveSystemGroup.add(uretra);
+
+            // Glans / Kepala Penis - Terhubung menyatu persis di titik paling ujung penis (t = 1)
+            const endPointPenis = penisCurveObj.getPoint(1.0);
+            const geoGlans = new THREE.SphereGeometry(0.85, 24, 24);
+            const glans = new THREE.Mesh(geoGlans, matPenisBody);
+            glans.position.set(endPointPenis.x - 0.1, endPointPenis.y - 0.1, endPointPenis.z);
+            glans.scale.set(1.05, 1.25, 0.95);
+            glans.rotation.z = 0.35; // Sudut kelengkungan disesuaikan dengan kurva batang
+            glans.name = 'Penis';
+            glans.userData = { id: 'Penis' };
+            organMeshes.push(glans);
+            reproductiveSystemGroup.add(glans);
+
+            // 7. TESTIS, EPIDIDIMIS & SKROTUM (NOMOR 1, 2, 5)
+            // Skrotum Outer (Nomor 5) - Kantong luar yang membungkus testis
+            const geoScrotum = new THREE.SphereGeometry(1.55, 24, 24);
+            const scrotum = new THREE.Mesh(geoScrotum, matScrotum);
+            scrotum.scale.set(1.15, 1.45, 1.15);
+            scrotum.position.set(-1.6, -3.8, 0);
+            scrotum.name = 'Skrotum';
+            scrotum.userData = { id: 'Skrotum' };
+            organMeshes.push(scrotum);
+            reproductiveSystemGroup.add(scrotum);
+
+            // Testis Organ (Nomor 1) - Organ padat berbentuk bulat telur di bagian dalam
+            const geoTestis = new THREE.SphereGeometry(0.85, 24, 24);
+            const testis = new THREE.Mesh(geoTestis, matTestis);
+            testis.scale.set(0.95, 1.25, 0.9);
+            testis.position.set(-1.6, -3.8, 0);
+            testis.name = 'Testis';
+            testis.userData = { id: 'Testis' };
+            organMeshes.push(testis);
+            reproductiveSystemGroup.add(testis);
+
+            // Epididimis (Nomor 2 - Saluran Tergulung Tebal Memeluk Bagian Belakang & Atas Testis)
+            class EpididimisCurve extends THREE.Curve {
+                getPoint(t, optionalTarget = new THREE.Vector3()) {
+                    // Lengkungan meliuk memeluk kepala (caput) hingga ekor (cauda) testis secara jelas
+                    const angle = (t * Math.PI * 1.25) - 0.2;
+                    const radiusX = 1.15;
+                    const radiusY = 1.55;
+                    const x = -1.6 + Math.cos(angle) * radiusX;
+                    const y = -3.8 + Math.sin(angle) * radiusY;
+                    const z = 0.35 + (Math.sin(t * Math.PI) * 0.15);
+                    return optionalTarget.set(x, y, z);
+                }
+            }
+            // Diameter tabung (tube) diperbesar (0.42) agar menonjol dan tebal
+            const geoEpididimis = new THREE.TubeGeometry(new EpididimisCurve(), 40, 0.42, 16, false);
+            const epididimis = new THREE.Mesh(geoEpididimis, matEpididimis);
+            epididimis.name = 'Epididimis';
+            epididimis.userData = { id: 'Epididimis' };
+            organMeshes.push(epididimis);
+            reproductiveSystemGroup.add(epididimis);
+
+            // Kepala Epididimis (Caput Epididymis) - Benjolan Atas Agar Makin Tampak Terpisah
+            const geoCaput = new THREE.SphereGeometry(0.5, 16, 16);
+            const caput = new THREE.Mesh(geoCaput, matEpididimis);
+            caput.position.set(-1.6, -2.25, 0.35);
+            caput.scale.set(1.2, 0.8, 1.0);
+            caput.name = 'Epididimis';
+            caput.userData = { id: 'Epididimis' };
+            organMeshes.push(caput);
+            reproductiveSystemGroup.add(caput);
+
+            // 8. VAS DEFERENS (NOMOR 6 - GARIS SALURAN MELENGKUNG NAIK KONTRAS)
+            class VasCurveSagittal extends THREE.Curve {
+                getPoint(t, optionalTarget = new THREE.Vector3()) {
+                    const x = -1.6 + (t * 3.5) - (Math.pow(t, 2) * 1.2);
+                    const y = -2.6 + (t * 7.5) - (Math.pow(t, 2) * 4.2);
+                    const z = 0.3 - (t * 0.3);
+                    return optionalTarget.set(x, y, z);
+                }
+            }
+            const geoVas = new THREE.TubeGeometry(new VasCurveSagittal(), 40, 0.22, 12, false);
+            const vas = new THREE.Mesh(geoVas, matVas);
+            vas.name = 'Vas Deferens';
+            vas.userData = { id: 'VasDeferens' };
+            organMeshes.push(vas);
+            reproductiveSystemGroup.add(vas);
+
+            scene.add(reproductiveSystemGroup);
+            createLabels();
+        }
+
+        function createLabels() {
+            const container = document.getElementById('hotspots-container');
+            container.innerHTML = '';
+            labels = [];
+
+            if (hotspotDots && hotspotDots.length > 0) {
+                hotspotDots.forEach(dot => reproductiveSystemGroup.remove(dot));
+            }
+            hotspotDots = [];
+
+            // Posisi Titik Penanda Terpisah Presisi & Tanpa Tumpang Tindih (1 s/d 10)
+            const anchorPoints = [
+                { id: 'Testis', num: '1', pos: new THREE.Vector3(-1.6, -3.8, 1.2) },
+                { id: 'Epididimis', num: '2', pos: new THREE.Vector3(-0.7, -2.6, 1.2) },
+                { id: 'Penis', num: '3', pos: new THREE.Vector3(-2.8, -2.2, 1.2) },
+                { id: 'Uretra', num: '4', pos: new THREE.Vector3(-3.8, -4.2, 1.2) },
+                { id: 'Skrotum', num: '5', pos: new THREE.Vector3(-1.6, -5.4, 1.2) },
+                { id: 'VasDeferens', num: '6', pos: new THREE.Vector3(-1.2, 1.2, 1.2) },
+                { id: 'KandungKemih', num: '7', pos: new THREE.Vector3(0.5, 3.6, 1.4) },
+                { id: 'KelenjarProstat', num: '8', pos: new THREE.Vector3(0.2, 0.6, 1.4) },
+                { id: 'VesikulaSeminalis', num: '9', pos: new THREE.Vector3(2.2, 1.8, 1.4) },
+                { id: 'KelenjarCowper', num: '10', pos: new THREE.Vector3(-0.3, -0.6, 1.4) }
+            ];
+
+            const dotGeo = new THREE.SphereGeometry(0.28, 16, 16);
+            const dotMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false });
+
+            anchorPoints.forEach(point => {
+                const div = document.createElement('div');
+                div.className = 'hotspot-label interactive flex items-center justify-center font-bold shadow-lg rounded-full';
+                // Hanya menampilkan lingkaran angka tanpa teks nama organ
+                div.innerHTML = `<span class="bg-cyan-400 text-slate-950 rounded-full w-6 h-6 flex items-center justify-center text-xs font-black shadow-md border border-white/50">${point.num}</span>`;
+                div.onclick = (e) => {
+                    e.stopPropagation();
+                    triggerOrganInfo(point.id);
+                };
+                container.appendChild(div);
+                labels.push({ element: div, pos: point.pos, id: point.id });
+
+                const dot = new THREE.Mesh(dotGeo, dotMat);
+                dot.position.copy(point.pos);
+                dot.renderOrder = 999;
+                dot.userData = { id: point.id, isHotspotDot: true };
+                reproductiveSystemGroup.add(dot);
+                organMeshes.push(dot);
+                hotspotDots.push(dot);
+            });
+        }
+
+        function updateLabels() {
+            if(!state.labelsVisible || state.currentScreen !== 'lab') {
+                labels.forEach(l => l.element.style.display = 'none');
+                return;
+            }
+
+            const tempV = new THREE.Vector3();
+            labels.forEach(l => {
+                tempV.copy(l.pos);
+                tempV.applyMatrix4(reproductiveSystemGroup.matrixWorld);
+                tempV.project(camera);
+                
+                if(tempV.z > 1) {
+                    l.element.style.display = 'none';
+                    return;
+                }
+
+                const x = (tempV.x * .5 + .5) * window.innerWidth;
+                const y = (tempV.y * -.5 + .5) * window.innerHeight;
+
+                l.element.style.display = 'block';
+                l.element.style.opacity = '1';
+                l.element.style.left = `${x}px`;
+                l.element.style.top = `${y}px`;
+            });
+        }
+
+        // --- INTERACTION ---
+        function onCanvasClick(event) {
+            if (state.currentScreen !== 'lab') return;
+            handleInteraction(event.clientX, event.clientY);
+        }
+
+        function onCanvasTouch(event) {
+            if (state.currentScreen !== 'lab') return;
+            if(event.touches.length === 1) {
+                handleInteraction(event.touches[0].clientX, event.touches[0].clientY);
+            }
+        }
+
+        function handleInteraction(clientX, clientY) {
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(organMeshes);
+
+            if (intersects.length > 0) {
+                let clicked = intersects.find(hit => hit.object.userData.isHotspotDot)?.object;
+                if (!clicked) clicked = intersects[0].object;
+                triggerOrganInfo(clicked.userData.id);
+            } else {
+                organMeshes.forEach(m => {
+                    if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000);
+                });
+                closeInfoPanel();
+            }
+        }
+
+        function triggerOrganInfo(id) {
+            let mainOrgan = organMeshes.find(m => m.userData.id === id && !m.userData.isHotspotDot);
+            
+            organMeshes.forEach(m => {
+                if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000);
+            });
+            
+            if (mainOrgan && mainOrgan.material && mainOrgan.material.emissive) {
+                mainOrgan.material.emissive.setHex(0x0284c7);
+            }
+
+            state.selectedMesh = mainOrgan;
+            showInfoPanel(id);
+            
+            let anchorPos = labels.find(l => l.id === id)?.pos;
+            if (anchorPos) {
+                new TWEEN.Tween(controls.target)
+                    .to({ x: anchorPos.x * 0.5, y: anchorPos.y * 0.5, z: anchorPos.z * 0.5 }, 1000)
+                    .easing(TWEEN.Easing.Cubic.Out)
+                    .start();
+            }
+        }
+
+        function showInfoPanel(id) {
+            const data = organData[id];
+            if(!data) return;
+            
+            document.getElementById('info-title').innerText = data.title;
+            document.getElementById('info-func').innerText = data.func;
+            document.getElementById('info-desc').innerText = data.desc;
+            
+            const panel = document.getElementById('info-panel');
+            panel.classList.remove('translate-x-full');
+        }
+
+        function closeInfoPanel() {
+            document.getElementById('info-panel').classList.add('translate-x-full');
+            organMeshes.forEach(m => {
+                if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000);
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function resetCamera() {
+            moveCamera(0, 0, 22);
+            new TWEEN.Tween(controls.target).to({ x: 0, y: 0, z: 0 }, 1000).start();
+            if(reproductiveSystemGroup) {
+                new TWEEN.Tween(reproductiveSystemGroup.rotation).to({ x: 0, y: 0, z: 0 }, 1000).start();
+            }
+            closeInfoPanel();
+        }
+
+        function moveCamera(x, y, z) {
+            new TWEEN.Tween(camera.position).to({ x: x, y: y, z: z }, 1500).easing(TWEEN.Easing.Cubic.Out).start();
+        }
+
+        function toggleLabels() {
+            state.labelsVisible = !state.labelsVisible;
+            const btn = document.getElementById('toggle-label-btn');
+            
+            if(!state.labelsVisible) {
+                labels.forEach(l => l.element.style.display = 'none');
+                if (hotspotDots) hotspotDots.forEach(d => d.visible = false);
+                if (btn) {
+                    btn.innerText = "Tampilkan Nomor Organ";
+                    btn.classList.replace('bg-cyan-700', 'bg-amber-700');
+                    btn.classList.replace('hover:bg-cyan-600', 'hover:bg-amber-600');
+                }
+            } else {
+                if (hotspotDots) hotspotDots.forEach(d => d.visible = true);
+                if (btn) {
+                    btn.innerText = "Sembunyikan Nomor Organ";
+                    btn.classList.replace('bg-amber-700', 'bg-cyan-700');
+                    btn.classList.replace('hover:bg-amber-600', 'hover:bg-cyan-600');
+                }
+            }
+        }
+
+        function toggleTransparency() {
+            state.isTransparent = !state.isTransparent;
+            organMeshes.forEach(m => {
+                m.material.opacity = state.isTransparent ? 0.35 : 1.0;
+            });
+        }
+
+        // --- ANIMATIONS FOR MALE ---
+        let animTweens = [];
+        
+        function setAnimSubtitle(text) {
+            const st = document.getElementById('anim-subtitle');
+            document.getElementById('anim-text').innerText = text;
+            st.classList.remove('hidden');
+            st.style.opacity = 1;
+        }
+        
+        function clearAnimSubtitle() {
+            const st = document.getElementById('anim-subtitle');
+            st.style.opacity = 0;
+            setTimeout(() => st.classList.add('hidden'), 300);
+        }
+
+        function stopAnimation() {
+            animTweens.forEach(t => t.stop());
+            animTweens = [];
+            if (animationObjects.spermList.length > 0) {
+                animationObjects.spermList.forEach(s => {
+                    if (s.parent) s.parent.remove(s);
+                });
+                animationObjects.spermList = [];
+            }
+            clearAnimSubtitle();
+            resetCamera();
+            if (!state.labelsVisible) toggleLabels();
+        }
+
+        function playAnimation(type) {
+            stopAnimation();
+            if (!state.isTransparent) toggleTransparency();
+            if (state.labelsVisible) toggleLabels();
+
+            if (type === 'spermatogenesis') {
+                setAnimSubtitle("Spermatogenesis: Pembentukan sperma di dalam Testis menuju Epididimis...");
+                moveCamera(-1.6, -3.0, 10);
+                new TWEEN.Tween(controls.target).to({x: -1.6, y: -3.2, z: 0}, 1000).start();
+
+                // Partikel sperma dibentuk TEPAT DI DALAM TESTIS dan mengalir ke EPIDIDIMIS
+                for (let i = 0; i < 18; i++) {
+                    const spermGeo = new THREE.SphereGeometry(0.08, 8, 8);
+                    const spermMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false });
+                    const sperm = new THREE.Mesh(spermGeo, spermMat);
+                    sperm.renderOrder = 999;
+                    
+                    // Titik acak di dalam Testis (x: -1.6, y: -3.8)
+                    sperm.position.set(-1.6 + (Math.random()-0.5)*0.8, -3.8 + (Math.random()-0.5)*0.8, (Math.random()-0.5)*0.5);
+                    reproductiveSystemGroup.add(sperm);
+                    animationObjects.spermList.push(sperm);
+
+                    // Bergerak naik ke arah Epididimis (x: -1.6, y: -2.3)
+                    const tw = new TWEEN.Tween(sperm.position)
+                        .to({ x: -1.6 + (Math.random()-0.5)*0.3, y: -2.3 + (Math.random()-0.5)*0.3, z: 0.35 }, 2500 + i*150)
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .repeat(Infinity)
+                        .start();
+                    animTweens.push(tw);
+                }
+            } else if (type === 'ejakulasi') {
+                setAnimSubtitle("Perjalanan Ejakulasi: Sperma dari Epididimis -> Vas Deferens...");
+                moveCamera(-1.0, -1.0, 16);
+                new TWEEN.Tween(controls.target).to({x: -1.0, y: -1.0, z: 0}, 1000).start();
+
+                const spermGeo = new THREE.SphereGeometry(0.14, 8, 8);
+                const spermMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false });
+                const sperm = new THREE.Mesh(spermGeo, spermMat);
+                sperm.renderOrder = 999;
+                reproductiveSystemGroup.add(sperm);
+                animationObjects.spermList.push(sperm);
+
+                // Mulai dari Epididimis
+                sperm.position.set(-1.6, -2.6, 0.3);
+
+                // Animasi menyusuri kurva Vas Deferens -> Prostat -> Uretra -> Ujung Penis
+                const pathObj = { u: 0 };
+                const t1 = new TWEEN.Tween(pathObj).to({ u: 1.0 }, 3000).onUpdate(() => {
+                    const u = pathObj.u;
+                    // Kurva Vas Deferens
+                    sperm.position.x = -1.6 + (u * 3.5) - (Math.pow(u, 2) * 1.2);
+                    sperm.position.y = -2.6 + (u * 7.5) - (Math.pow(u, 2) * 4.2);
+                    sperm.position.z = 0.3 - (u * 0.3);
+                });
+
+                // Dari Prostat masuk uretra di batang penis hingga keluar di Glans
+                const pathUretra = { u: 0 };
+                const t2 = new TWEEN.Tween(pathUretra).to({ u: 1.0 }, 2500).onUpdate(() => {
+                    const u = pathUretra.u;
+                    sperm.position.x = -0.4 - (u * 3.1) - (Math.sin(u * Math.PI * 0.7) * 0.4);
+                    sperm.position.y = 0.5 - (u * 5.3);
+                    sperm.position.z = 0;
+                });
+
+                t1.onComplete(() => {
+                    setAnimSubtitle("Bercampur cairan dari Vesikula Seminalis & Prostat menjadi Semen, lalu mengalir ke Uretra.");
+                    t2.start();
+                });
+                t2.onComplete(() => setAnimSubtitle("Cairan semen berhasil dikeluarkan melalui Uretra di ujung Penis."));
+
+                animTweens.push(t1, t2);
+                t1.start();
+            }
+        }
+
+        function animate3D(time) {
+            requestAnimationFrame(animate3D);
+            TWEEN.update(time);
+            controls.update();
+            updateLabels();
+
+            if (hotspotDots && hotspotDots.length > 0) {
+                const scale = 1 + Math.sin(time / 200) * 0.2;
+                hotspotDots.forEach(dot => dot.scale.set(scale, scale, scale));
+            }
+
+            if (state.currentScreen === 'home' && reproductiveSystemGroup) {
+                reproductiveSystemGroup.rotation.y += 0.005;
+                reproductiveSystemGroup.position.y = Math.sin(time / 1000) * 0.5;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- KUIS LOGIC ---
+        function startQuiz() {
+            state.quizIndex = 0;
+            state.quizScore = 0;
+            document.getElementById('quiz-result').classList.add('hidden');
+            document.getElementById('quiz-question-area').classList.remove('hidden');
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = quizData[state.quizIndex];
+            document.getElementById('q-current').innerText = state.quizIndex + 1;
+            document.getElementById('q-total').innerText = quizData.length;
+            document.getElementById('q-text').innerText = q.q;
+            
+            const optionsDiv = document.getElementById('q-options');
+            optionsDiv.innerHTML = '';
+            
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg transition font-medium';
+                btn.innerText = String.fromCharCode(65 + idx) + ". " + opt;
+                btn.onclick = () => checkAnswer(idx, btn);
+                optionsDiv.appendChild(btn);
+            });
+            document.getElementById('quiz-feedback').classList.add('hidden');
+        }
+
+        function checkAnswer(selectedIdx, btnElement) {
+            const q = quizData[state.quizIndex];
+            const isCorrect = selectedIdx === q.ans;
+            
+            const btns = document.getElementById('q-options').querySelectorAll('button');
+            btns.forEach(b => {
+                b.disabled = true;
+                b.classList.remove('hover:bg-slate-800');
+                b.classList.add('opacity-50');
+            });
+
+            const fbBox = document.getElementById('quiz-feedback');
+            const fbTitle = document.getElementById('fb-title');
+            
+            if(isCorrect) {
+                state.quizScore++;
+                btnElement.classList.replace('bg-slate-900', 'bg-emerald-600');
+                btnElement.classList.replace('border-slate-700', 'border-emerald-500');
+                btnElement.classList.remove('opacity-50');
+                fbTitle.innerText = "✅ Benar!";
+                fbTitle.className = "text-lg font-bold mb-2 text-emerald-400";
+            } else {
+                btnElement.classList.replace('bg-slate-900', 'bg-red-600');
+                btnElement.classList.replace('border-slate-700', 'border-red-500');
+                btnElement.classList.remove('opacity-50');
+                btns[q.ans].classList.replace('bg-slate-900', 'bg-emerald-600');
+                btns[q.ans].classList.replace('border-slate-700', 'border-emerald-500');
+                btns[q.ans].classList.remove('opacity-50');
+                
+                fbTitle.innerText = "❌ Salah!";
+                fbTitle.className = "text-lg font-bold mb-2 text-red-400";
+            }
+
+            document.getElementById('fb-desc').innerText = q.exp;
+            fbBox.classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            state.quizIndex++;
+            if(state.quizIndex < quizData.length) {
+                loadQuestion();
+            } else {
+                showQuizResult();
+            }
+        }
+
+        function showQuizResult() {
+            document.getElementById('quiz-question-area').classList.add('hidden');
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            
+            const resBox = document.getElementById('quiz-result');
+            resBox.classList.remove('hidden');
+            
+            const finalScore = Math.round((state.quizScore / quizData.length) * 100);
+            document.getElementById('quiz-score').innerText = finalScore;
+            
+            const msg = document.getElementById('quiz-msg');
+            if(finalScore >= 80) msg.innerText = "Luar Biasa! Pemahaman sistem reproduksi pria sangat sempurna.";
+            else if(finalScore >= 60) msg.innerText = "Bagus! Pelajari kembali materi untuk hasil lebih maksimal.";
+            else msg.innerText = "Tetap Semangat! Pelajari materinya lagi ya.";
+        }
+
+        // --- GAME LOGIC ---
+        function gameSelect(btn, stepVal) {
+            const targetArea = document.getElementById('game-target');
+            const placeholder = document.getElementById('game-placeholder');
+            if(placeholder) placeholder.remove();
+            
+            btn.onclick = () => gameRemove(btn, stepVal);
+            targetArea.appendChild(btn);
+            state.gameSequence.push(stepVal);
+        }
+
+        function gameRemove(btn, stepVal) {
+            const optionsArea = document.getElementById('game-options');
+            btn.onclick = () => gameSelect(btn, stepVal);
+            optionsArea.appendChild(btn);
+            
+            const index = state.gameSequence.indexOf(stepVal);
+            if (index > -1) state.gameSequence.splice(index, 1);
+            
+            if(state.gameSequence.length === 0) {
+                document.getElementById('game-target').innerHTML = '<span class="text-slate-500 text-sm" id="game-placeholder">Area Urutan (Kosong)</span>';
+            }
+        }
+
+        function checkGame() {
+            const fb = document.getElementById('game-feedback');
+            fb.classList.remove('hidden');
+            
+            if(state.gameSequence.length < 4) {
+                fb.innerText = "⚠️ Susun keempat saluran terlebih dahulu!";
+                fb.className = "mt-4 font-bold text-lg text-amber-400";
+                return;
+            }
+            
+            const isCorrect = state.gameSequence.join(',') === '1,2,3,4';
+            if(isCorrect) {
+                fb.innerText = "🎉 TEPAT SEKALI! Urutan aliran sperma benar (Testis -> Epididimis -> Vas Deferens -> Uretra).";
+                fb.className = "mt-4 font-bold text-lg text-emerald-400";
+            } else {
+                fb.innerText = "❌ Belum Tepat. Coba susun kembali urutannya.";
+                fb.className = "mt-4 font-bold text-lg text-red-400";
+            }
+        }
+
+        function resetGame() {
+            state.gameSequence = [];
+            document.getElementById('game-feedback').classList.add('hidden');
+            const targetArea = document.getElementById('game-target');
+            const optionsArea = document.getElementById('game-options');
+            
+            optionsArea.innerHTML = `
+                <button onclick="gameSelect(this, 1)" class="game-btn px-4 py-2 bg-cyan-700 rounded-lg hover:bg-cyan-600 transition shadow-lg">1. Testis (Tubulus Seminiferus)</button>
+                <button onclick="gameSelect(this, 4)" class="game-btn px-4 py-2 bg-indigo-700 rounded-lg hover:bg-indigo-600 transition shadow-lg">4. Uretra (Keluar Tubuh)</button>
+                <button onclick="gameSelect(this, 3)" class="game-btn px-4 py-2 bg-purple-700 rounded-lg hover:bg-purple-600 transition shadow-lg">3. Vas Deferens</button>
+                <button onclick="gameSelect(this, 2)" class="game-btn px-4 py-2 bg-amber-700 rounded-lg hover:bg-amber-600 transition shadow-lg">2. Epididimis</button>
+            `;
+            targetArea.innerHTML = '<span class="text-slate-500 text-sm" id="game-placeholder">Area Urutan (Kosong)</span>';
+        }
+
+        window.onload = function() {
+            initThreeJS();
+        };
+    </script>
+</body>
+</html>
